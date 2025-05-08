@@ -1,0 +1,4 @@
+string gesture
+float32 probability
+float32 confidence
+float32 displacement

@@ -1,0 +1,13 @@
+bool connected
+float32 battery
+uint8 selector
+bool selector_valid
+Touch touchpad
+bool touchpad_valid
+Angle angle
+bool angle_valid
+Gesture gesture
+bool gesture_valid
+uint8 BLE_SELECTOR_NONE=0
+uint8 BLE_SELECTOR_SENSORS=1
+uint8 BLE_SELECTOR_AUDIO=2

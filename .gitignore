@@ -58,4 +58,4 @@ src/braccio_ros/braccio_ros/__init__.py
 src/braccio_ros/test/test_pep257.py
 src/braccio_ros/test/test_flake8.py
 src/braccio_ros/test/test_copyright.py
-src/braccio_ros/resource/braccio_ros
+

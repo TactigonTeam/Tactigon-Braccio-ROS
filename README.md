@@ -57,7 +57,7 @@ clone this repository
 
 # Build the workspace
 #Navigate to the workspace. Example:
-cd ~/ros2_ws
+cd ~/Tactigon-Braccio-Ros
 colcon build 
 
 # Source the workspace
@@ -144,7 +144,7 @@ float32  move_time      # seconds
   2. At 50 Hz, reads:
 
      * **Battery** voltage → percentage
-     * **Selector** wheel value
+     * **Selector** Selector value
      * **Touchpad** gestures & X/Y positions
      * **IMU** orientation (roll, pitch, yaw)
      * **Gesture recognition** via `GestureConfig`

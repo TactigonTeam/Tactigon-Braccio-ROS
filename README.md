@@ -1,5 +1,8 @@
 # Tactigon Braccio ROS Package
 
+<img src="models/demo/IMG_4531.jpg" width="300">
+
+---
 This is a ROS 2 Jazzy package running on Ubuntu 24.04 that integrates a Tactigon TSkin with a Braccio robot arm. It provides two nodes:
 
 1. **tactigon\_data\_publisher**: Connects to the Tactigon device, reads sensor data (battery, selector, touchpad, orientation, gestures), and publishes it as a custom `TSkinState` message.

@@ -20,6 +20,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Gesture.msg"
   "msg/TSkinState.msg"
   "msg/BraccioResponse.msg"
+  "msg/BraccioCommand.msg"
   DEPENDENCIES std_msgs
 )
 

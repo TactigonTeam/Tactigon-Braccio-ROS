@@ -27,7 +27,9 @@ setup(
         'console_scripts': [
             
             
-            'braccio_control = braccio_ros.braccio_control:main',
+           # 'braccio_control = braccio_ros.braccio_control:main',
+            'braccio_ui_publisher = braccio_ros.braccio_ui_publisher:main',
+            'braccio_simple_control = braccio_ros.braccio_simple_control:main',
         ],
     },
 

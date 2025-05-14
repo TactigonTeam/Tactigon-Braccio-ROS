@@ -21,15 +21,22 @@ class BraccioUIPublisher(Node):
                 y_str = input("Enter Y coordinate (integer, e.g., 100): ")
                 z_str = input("Enter Z coordinate (integer, e.g., 150): ")
                 
-                wrist_state_str = input("Enter Wrist state (HORIZONTAL or VERTICAL): ").strip().upper()
-                gripper_state_str = input("Enter Gripper state (OPEN or CLOSE): ").strip().upper()
-
-                # Basic validation
-                if wrist_state_str not in ["HORIZONTAL", "VERTICAL"]:
-                    self.get_logger().warn("Invalid wrist state. Please enter HORIZONTAL or VERTICAL.")
+                wrist_state_input = input("Enter Wrist state (h for HORIZONTAL, v for VERTICAL): ").strip().lower()
+                if wrist_state_input == 'h':
+                    wrist_state_str = "HORIZONTAL"
+                elif wrist_state_input == 'v':
+                    wrist_state_str = "VERTICAL"
+                else:
+                    self.get_logger().warn("Invalid wrist state. Please enter 'h' or 'v'.")
                     continue
-                if gripper_state_str not in ["OPEN", "CLOSE"]:
-                    self.get_logger().warn("Invalid gripper state. Please enter OPEN or CLOSE.")
+
+                gripper_state_input = input("Enter Gripper state (o for OPEN, c for CLOSE): ").strip().lower()
+                if gripper_state_input == 'o':
+                    gripper_state_str = "OPEN"
+                elif gripper_state_input == 'c':
+                    gripper_state_str = "CLOSE"
+                else:
+                    self.get_logger().warn("Invalid gripper state. Please enter 'o' or 'c'.")
                     continue
 
                 msg = BraccioCommand()

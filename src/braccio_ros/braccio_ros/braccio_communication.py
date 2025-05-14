@@ -9,9 +9,9 @@ from tactigon_msgs.msg import BraccioCommand  # <--- CHANGE 'your_package_name'
 # Import BraccioResponse if you have tactigon_msgs and want to use it
 from tactigon_msgs.msg import BraccioResponse
 
-class BraccioSimpleController(Node):
+class BraccioCommunication(Node):
     def __init__(self):
-        super().__init__('braccio_simple_controller_node')
+        super().__init__('braccio_communication_node')
 
         # Braccio setup
         # IMPORTANT: Replace with your Braccio's Bluetooth MAC address
@@ -20,15 +20,12 @@ class BraccioSimpleController(Node):
         
         self.get_logger().info("Attempting to connect to Braccio...")
         try:
-            self.braccio.__enter__() # Manually enter context
-            # It might take a moment for self.braccio.connected to become true
-            # after __enter__ if connection is asynchronous.
-            # Add a small delay and check.
+            self.braccio.__enter__() 
             time.sleep(2) # Adjust if needed
             
             if not self.braccio.connected:
                 self.get_logger().warn("Braccio not immediately connected after __enter__. Waiting...")
-                # Wait for a bit longer for connection
+                
                 for _ in range(100): # Wait up to 10 seconds
                     if self.braccio.connected:
                         break
@@ -37,17 +34,16 @@ class BraccioSimpleController(Node):
             if self.braccio.connected:
                 self.get_logger().info("Braccio connected successfully.")
             else:
-                self.get_logger().error("Failed to connect to Braccio. Exiting.")
-                # Consider raising an exception or shutting down rclpy
+                self.get_logger().error("Failed to connect to Braccio. Exiting.")                
                 rclpy.shutdown()
-                return # Stop further initialization
+                return 
 
         except Exception as e:
             self.get_logger().error(f"Error during Braccio connection: {e}")
             rclpy.shutdown()
             return
 
-        # Publisher for Braccio move result (optional, but good practice)
+        # Publisher for Braccio move result
         self.move_result_pub = self.create_publisher(BraccioResponse, '/braccio_move_result', 10)
 
         # Subscribe to the BraccioCommand topic
@@ -57,7 +53,7 @@ class BraccioSimpleController(Node):
             self.command_callback,
             10
         )
-        self.get_logger().info("Braccio Simple Controller Node started. Waiting for commands on /braccio_command.")
+        self.get_logger().info("Braccio Communication Node started. Waiting for commands on /braccio_command.")
 
     def command_callback(self, msg: BraccioCommand):
         self.get_logger().info(
@@ -131,8 +127,8 @@ class BraccioSimpleController(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = BraccioSimpleController()
-    if not rclpy.ok(): # Check if init failed (e.g. Braccio connection)
+    node = BraccioCommunication()
+    if not rclpy.ok(): # Check if init failed
         return
 
     try:

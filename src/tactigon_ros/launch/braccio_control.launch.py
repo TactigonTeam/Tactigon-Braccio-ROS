@@ -13,4 +13,9 @@ def generate_launch_description():
             executable='braccio_control',
             name='braccio_control',
         ),
+        Node(
+            package='braccio_ros',
+            executable='braccio_communication',
+            name='braccio_communication',
+        ),
     ])

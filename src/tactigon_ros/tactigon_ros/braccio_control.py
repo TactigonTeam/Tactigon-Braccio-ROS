@@ -2,39 +2,29 @@
 
 import rclpy
 from rclpy.node import Node
-import time
-from tactigon_arduino_braccio import Braccio, BraccioConfig, Wrist, Gripper
 from tactigon_msgs.msg import TSkinState as TSkinStateMsg
-from tactigon_msgs.msg import Touch, Angle, Gesture
-from tactigon_msgs.msg import BraccioResponse  # Import BraccioResponse message
+from tactigon_msgs.msg import BraccioResponse
 from tactigon_gear import OneFingerGesture
+from tactigon_msgs.msg import BraccioCommand
 
 class TactigonControlNode(Node):
     def __init__(self):
         super().__init__('tactigon_control_node')
 
-        # Braccio setup
-        braccio_cfg = BraccioConfig("D1:EF:85:90:07:DE")
-        self.braccio = Braccio(braccio_cfg)
-        # enter context manually
-        self.braccio.__enter__()
-        while not self.braccio.connected:
-            self.get_logger().info("Waiting for Braccio...")
-            time.sleep(0.1)
-        self.get_logger().info("Braccio connected.")
-
         # initial pose/state
         self.x = 0
         self.y = 0
         self.z = 150
-        self.wrist = Wrist.HORIZONTAL
-        self.gripper = Gripper.CLOSE
+        self.wrist = 0  # 0: HORIZONTAL, 1: VERTICAL
+        self.gripper = 0  # 0: CLOSE, 1: OPEN
 
         # live tracking mode flag
         self.live_tracking = False
 
         # Publisher for Braccio move result
         self.move_result_pub = self.create_publisher(BraccioResponse, '/braccio_move_result', 10)
+        # Publisher for BraccioCommand
+        self.braccio_command_pub = self.create_publisher(BraccioCommand, '/braccio_command', 10)
 
         # subscribe to the TSkinState topic
         self.sub = self.create_subscription(
@@ -54,7 +44,7 @@ class TactigonControlNode(Node):
             self.get_logger().info(f"Live tracking mode {'enabled' if self.live_tracking else 'disabled'}.")
             return
         
-        self.get_logger().info(f"{msg.touchpad.one_finger} -- {OneFingerGesture.SINGLE_TAP.value}")
+        #self.get_logger().info(f"{msg.touchpad.one_finger} -- {OneFingerGesture.SINGLE_TAP.value}")
 
         if self.live_tracking and msg.touchpad.one_finger == OneFingerGesture.SINGLE_TAP.value:
             self.live_tracking = not self.live_tracking
@@ -76,18 +66,12 @@ class TactigonControlNode(Node):
 
         # twist toggles wrist
         if msg.gesture_valid and msg.gesture.gesture == "twist":
-            self.wrist = (
-                Wrist.VERTICAL
-                if self.wrist == Wrist.HORIZONTAL
-                else Wrist.HORIZONTAL
-            )
+            self.wrist = 1 if self.wrist == 0 else 0
             modified = True
 
         # single tap toggles gripper
         if msg.touchpad_valid and msg.touchpad.one_finger == OneFingerGesture.SINGLE_TAP.value:
-            self.gripper = (
-                Gripper.OPEN if self.gripper == Gripper.CLOSE else Gripper.CLOSE
-            )
+            self.gripper = 1 if self.gripper == 0 else 0
             modified = True
 
         # tap-and-hold + angle drives X/Y [currenly disabled, gesture swipe_l toggles live tracking]
@@ -114,48 +98,30 @@ class TactigonControlNode(Node):
 
         # live tracking mode: update X/Y/Z from angles
         if self.live_tracking and msg.angle_valid:
-            # Example: map angles to X/Y/Z (customize as needed)
-            #self.x = int(msg.angle.roll * 0.03 )
             roll = msg.angle.roll
             if 40 >= roll >= -30:
                 new_x = abs(roll * 10) if roll < 0 else -int(roll * 7.5)
                 if new_x != self.x:
                     self.x = new_x
-                    
-            #self.y = int(msg.angle.pitch * 0.03 + 50)
             pitch = msg.angle.pitch
             if 0 >= pitch >= -90:
                 new_y = int(abs(pitch) * 3.33)
                 if new_y != self.y:
                     self.y = new_y
-                    
             self.z = int(150)
             print(f"X: {self.x}, Y: {self.y}, Z: {self.z}")
             modified = True
 
         # execute if anything changed
         if modified:
-            res, status, move_time = self.braccio.move(
-                self.x, self.y, self.z, self.wrist, self.gripper
-            )
-            # Publish move result
-            move_msg = BraccioResponse()
-            move_msg.success = bool(res)
-            move_msg.status = str(status)
-            move_msg.move_time = float(move_time)
-            self.move_result_pub.publish(move_msg)
-            if res:
-                self.get_logger().info(f"Moved → status: {status}, t: {move_time:.2f}s")
-            else:
-                self.get_logger().warn("Braccio move failed.")
-
-    def destroy_node(self):
-        # bring Braccio home and clean up
-        try:
-            self.braccio.home()
-        finally:
-            self.braccio.__exit__(None, None, None)
-        super().destroy_node()
+            cmd_msg = BraccioCommand()
+            cmd_msg.x = self.x
+            cmd_msg.y = self.y
+            cmd_msg.z = self.z
+            cmd_msg.wrist_state = "HORIZONTAL" if self.wrist == 0 else "VERTICAL"
+            cmd_msg.gripper_state = "CLOSE" if self.gripper == 0 else "OPEN"
+            self.braccio_command_pub.publish(cmd_msg)
+            self.get_logger().info(f"Published BraccioCommand: X={cmd_msg.x}, Y={cmd_msg.y}, Z={cmd_msg.z}, Wrist={cmd_msg.wrist_state}, Gripper={cmd_msg.gripper_state}")
 
 
 def main(args=None):

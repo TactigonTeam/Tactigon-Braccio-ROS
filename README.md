@@ -6,7 +6,7 @@
 
 This repository contains two main ROS 2 packages for controlling an Arduino Braccio robot arm, with or without a Tactigon TSkin device:
 
-- **tactigon_ros**: Integrates a Tactigon TSkin wearable with the Braccio arm for gesture-based control.
+- **tactigon_ros**: Integrates a Tactigon TSkin wearable into ros, publishing a tskin custom message.
 - **braccio_ros**: Provides a simplified interface to control the Braccio arm directly, without requiring a Tactigon device.
 
 ---
@@ -19,6 +19,7 @@ This repository contains two main ROS 2 packages for controlling an Arduino Brac
 * [Usage](#usage)
   * [tactigon_ros: Tactigon + Braccio Integration](#tactigon_ros-usage)
   * [braccio_ros: Standalone Braccio Control](#braccio_ros-usage)
+* [System Architecture Overview](#system-architecture-overview)
 * [Topics & Messages](#topics--messages)
 * [Message Definitions](#message-definitions)
 * [Node Details](#node-details)
@@ -30,7 +31,7 @@ This repository contains two main ROS 2 packages for controlling an Arduino Brac
 
 ## Features
 
-* **tactigon_ros**: Real-time Tactigon sensor publishing, gesture-driven Braccio control, custom ROS 2 messages.
+* **tactigon_ros**: Real-time Tactigon sensor publishing, gesture-driven commands, custom ROS 2 messages.
 * **braccio_ros**: Direct control of the Braccio arm from ROS 2 nodes, no Tactigon required.
 
 ---
@@ -73,11 +74,14 @@ This mode uses both the Tactigon TSkin and the Braccio arm. Use this if you want
 # Terminal A: Start the Tactigon data publisher
 ros2 run tactigon_ros tactigon_data
 
-# Terminal B: Start the Braccio control node (gesture-based)
-ros2 run braccio_ros braccio_control
+# Terminal B: Start the Braccio control node 
+ros2 run tactigon_ros braccio_control
+
+# Terminal C: Start the communication between the braccio and ROS interfaces
+ros2 run braccio_ros braccio_communication
 ```
 
-Or launch both together:
+Or launch all together: *all the nodes will be displayed in only one terminal, which makes it harder to understand.
 
 ```bash
 ros2 launch tactigon_ros braccio_control.launch.py
@@ -88,21 +92,52 @@ ros2 launch tactigon_ros braccio_control.launch.py
 This mode allows you to control the Braccio arm directly from ROS 2 nodes, without a Tactigon device. You can write your own publisher to send commands to the Braccio.
 
 ```bash
-# Terminal: Start the Braccio control node (standalone)
-ros2 run braccio_ros braccio_control
+# Terminal A: Start the Braccio communication node 
+ros2 run braccio_ros braccio_communication
+# Terminal B: Start the Braccio_ui 
+ros2 run braccio_ros braccio_ui_publisher
 ```
 
 You can publish commands to the appropriate topics as documented below.
 
 ---
 
+## System Architecture Overview
+
+This repository implements a modular ROS 2 system for controlling an Arduino Braccio robot arm, with or without a Tactigon TSkin device. The architecture is designed for flexibility, separating gesture interpretation, command translation, and hardware execution into distinct nodes and packages.
+
+### Node & Topic Flow
+
+```
+Tactigon Device
+    │
+    ▼
+tactigon_ros/tactigon_data  ── publishes ──▶  /tactigon_state (TSkinState)
+    │
+    ▼
+tactigon_ros/braccio_control ── publishes ──▶  /braccio_command (BraccioCommand)
+    │
+    ▼
+braccio_ros/braccio_control  ── publishes ──▶  /braccio_move_result (BraccioResponse)
+
+# For manual testing:
+(braccio_ros/braccio_ui_publisher) ── publishes ──▶  /braccio_command (BraccioCommand)
+```
+
+- **tactigon_data**: Reads sensor data from the Tactigon TSkin and publishes it as TSkinState.
+- **tactigon_ros/braccio_control**: Subscribes to TSkinState, interprets gestures, and publishes BraccioCommand messages.
+- **braccio_ros/braccio_control**: Subscribes to BraccioCommand and controls the Braccio hardware, publishing results as BraccioResponse.
+- **braccio_ui_publisher**: Allows manual publishing of BraccioCommand messages for testing and calibration.
+
+---
+
 ## Topics & Messages
 
-| Topic                  | Message Type      | Description                         |
-| ---------------------- | ----------------- | ----------------------------------- |
-| `/tactigon_state`      | `TSkinState`      | Full Tactigon device state (tactigon_ros) |
-| `/braccio_move_result` | `BraccioResponse` | Result of each Braccio move command  |
-| `/braccio_command`     | `BraccioCommand`  | Command to set Braccio arm pose (braccio_ros) |
+| Topic                  | Message Type      | Published By                        | Subscribed By                      | Description                         |
+| ---------------------- | ---------------- | ----------------------------------- | ----------------------------------- | ----------------------------------- |
+| `/tactigon_state`      | `TSkinState`     | tactigon_ros/tactigon_data          | tactigon_ros/braccio_control        | Full Tactigon device state          |
+| `/braccio_command`     | `BraccioCommand` | tactigon_ros/braccio_control,<br>braccio_ros/braccio_ui_publisher | braccio_ros/braccio_control         | Command to set Braccio arm pose     |
+| `/braccio_move_result` | `BraccioResponse`| braccio_ros/braccio_control         | (optional)                         | Result of each Braccio move command |
 
 ---
 
@@ -127,8 +162,6 @@ uint8 BLE_SELECTOR_NONE=0
 uint8 BLE_SELECTOR_SENSORS=1
 uint8 BLE_SELECTOR_AUDIO=2
 ```
-
-
 
 ### BraccioCommand.msg (braccio_ros, tactigon_msgs)
 
@@ -168,11 +201,11 @@ This message is published to `/braccio_command` (by e.g. `braccio_ui_publisher`)
   2. At 50 Hz, reads battery, selector, touchpad, IMU orientation, and gestures.
   3. Publishes a `TSkinState` message.
 
-#### braccio_control (integration mode)
+#### braccio_control (gesture-to-command translator)
 
 * **Executable**: `braccio_control`
 * **Subscribes to**: `/tactigon_state` (`TSkinState`)
-* **Publishes**: `/braccio_move_result` (`BraccioResponse`)
+* **Publishes**: `/braccio_command` (`BraccioCommand`)
 * **Functionality**:
   1. Connects to a Braccio arm via `tactigon_arduino_braccio.Braccio`.
   2. Interprets gestures and touchpad data to control the arm.
@@ -180,7 +213,7 @@ This message is published to `/braccio_command` (by e.g. `braccio_ui_publisher`)
 
 ### <a name="braccio_ros-nodes"></a>braccio_ros Nodes
 
-#### braccio_control 
+#### braccio_control (hardware executor)
 
 * **Executable**: `braccio_control`
 * **Publishes**: `/braccio_move_result` (`BraccioResponse`)
@@ -204,6 +237,40 @@ ros2 run braccio_ros braccio_ui_publisher
 ```
 
 This will start the UI publisher node, allowing you to send manual commands to the Braccio arm. Make sure `braccio_control` is running to receive and execute these commands.
+
+---
+
+## Usage Examples
+
+### Gesture-Based Control (Tactigon + Braccio)
+
+```bash
+# Terminal 1: Start Tactigon data publisher
+ros2 run tactigon_ros tactigon_data
+
+# Terminal 2: Start gesture-to-command translator
+ros2 run tactigon_ros braccio_control
+
+# Terminal 3: Start Braccio hardware executor
+ros2 run braccio_ros braccio_control
+```
+
+Or launch the first two together:
+
+```bash
+ros2 launch tactigon_ros braccio_control.launch.py
+# (then run braccio_ros/braccio_control in another terminal)
+```
+
+### Manual Braccio Control (No Tactigon Required)
+
+```bash
+# Terminal 1: Start Braccio hardware executor
+ros2 run braccio_ros braccio_control
+
+# Terminal 2: Start UI publisher for manual commands
+ros2 run braccio_ros braccio_ui_publisher
+```
 
 ---
 
